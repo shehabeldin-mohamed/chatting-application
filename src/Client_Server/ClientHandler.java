@@ -14,13 +14,6 @@ public class ClientHandler implements Runnable {
     private String Username;
     private List<String> bannedPhrases;
 
-    private boolean isPrivateMessage;
-    private boolean isMultipleUsersMessage;
-    private boolean isExceptUsersMessage;
-    private boolean isBannedPhrasesQuery;
-
-
-
     public ClientHandler(Socket socket, List<String> bannedPhrases) {
         try {
             this.socket = socket;
@@ -50,13 +43,11 @@ public class ClientHandler implements Runnable {
                 messageFromClient = bufferedReader.readLine();
 
                 if (messageFromClient != null) {
-                    resetFlags();
                     String[] tokens = messageFromClient.split("\\s+", 3);
 
                     if (tokens.length > 0) {
                         switch (tokens[0]) {
                             case "-u":
-                                isPrivateMessage = true;
                                 if (tokens.length == 3) {
                                     handlePrivateMessage(tokens[1], tokens[2]);
                                 } else {
@@ -64,7 +55,6 @@ public class ClientHandler implements Runnable {
                                 }
                                 break;
                             case "-m":
-                                isMultipleUsersMessage = true;
                                 if (tokens.length == 3) {
                                     handleMultipleUsersMessage(tokens[1], tokens[2]);
                                 } else {
@@ -72,7 +62,6 @@ public class ClientHandler implements Runnable {
                                 }
                                 break;
                             case "-e":
-                                isExceptUsersMessage = true;
                                 if (tokens.length == 3) {
                                     handleExceptUsersMessage(tokens[1], tokens[2]);
                                 } else {
@@ -80,7 +69,6 @@ public class ClientHandler implements Runnable {
                                 }
                                 break;
                             case "-b":
-                                isBannedPhrasesQuery = true;
                                 sendBannedPhrases();
                                 break;
                             case "-l":
@@ -270,13 +258,6 @@ public class ClientHandler implements Runnable {
             }
         }
         return detectedPhrases;
-    }
-
-    private void resetFlags() {
-        isPrivateMessage = false;
-        isMultipleUsersMessage = false;
-        isExceptUsersMessage = false;
-        isBannedPhrasesQuery = false;
     }
 
     private void notifyClient(String message) {
