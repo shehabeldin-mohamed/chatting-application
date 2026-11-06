@@ -3,10 +3,11 @@ package Client_Server;
 import java.io.*;
 import java.net.Socket;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ClientHandler implements Runnable {
 
-    public static ArrayList<ClientHandler> clientHandlers = new ArrayList<>();
+    public static final List<ClientHandler> clientHandlers = new CopyOnWriteArrayList<>();
     private Socket socket;
     private BufferedReader bufferedReader;
     private PrintWriter printWriter;
