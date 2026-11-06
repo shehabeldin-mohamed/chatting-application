@@ -8,6 +8,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class ClientHandler implements Runnable {
 
     public static final List<ClientHandler> clientHandlers = new CopyOnWriteArrayList<>();
+    private final Map<String, Command> commandRouter = new HashMap<>();
     private Socket socket;
     private BufferedReader bufferedReader;
     private PrintWriter printWriter;
@@ -21,6 +22,9 @@ public class ClientHandler implements Runnable {
             this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.bannedPhrases = bannedPhrases;
 
+            // Initialize the command routes before doing anything else
+            initializeCommands();
+
             this.Username = bufferedReader.readLine();
             clientHandlers.add(this);
 
@@ -31,6 +35,29 @@ public class ClientHandler implements Runnable {
         } catch (IOException e) {
             closeEverything(socket, bufferedReader, printWriter);
         }
+    }
+
+    private void initializeCommands() {
+        commandRouter.put("-u", tokens -> {
+            if (tokens.length == 3) handlePrivateMessage(tokens[1], tokens[2]);
+            else notifyClient("Invalid private message format. Use -u username message.");
+        });
+
+        commandRouter.put("-m", tokens -> {
+            if (tokens.length == 3) handleMultipleUsersMessage(tokens[1], tokens[2]);
+            else notifyClient("Invalid multiple users message format. Use -m user1,user2,... message.");
+        });
+
+        commandRouter.put("-e", tokens -> {
+            if (tokens.length == 3) handleExceptUsersMessage(tokens[1], tokens[2]);
+            else notifyClient("Invalid except users message format. Use -e user1,user2,... message.");
+        });
+
+        commandRouter.put("-b", tokens -> sendBannedPhrases());
+
+        commandRouter.put("-l", tokens -> sendConnectedUsers());
+
+        commandRouter.put("-q", tokens -> closeEverything(socket, bufferedReader, printWriter));
     }
 
 
@@ -46,46 +73,19 @@ public class ClientHandler implements Runnable {
                     String[] tokens = messageFromClient.split("\\s+", 3);
 
                     if (tokens.length > 0) {
-                        switch (tokens[0]) {
-                            case "-u":
-                                if (tokens.length == 3) {
-                                    handlePrivateMessage(tokens[1], tokens[2]);
-                                } else {
-                                    notifyClient("Invalid private message format. Use -u username message.");
-                                }
-                                break;
-                            case "-m":
-                                if (tokens.length == 3) {
-                                    handleMultipleUsersMessage(tokens[1], tokens[2]);
-                                } else {
-                                    notifyClient("Invalid multiple users message format. Use -m user1,user2,... message.");
-                                }
-                                break;
-                            case "-e":
-                                if (tokens.length == 3) {
-                                    handleExceptUsersMessage(tokens[1], tokens[2]);
-                                } else {
-                                    notifyClient("Invalid except users message format. Use -e user1,user2,... message.");
-                                }
-                                break;
-                            case "-b":
-                                sendBannedPhrases();
-                                break;
-                            case "-l":
-                                sendConnectedUsers();
-                                break;
-                            case "-q":
-                                closeEverything(socket, bufferedReader, printWriter);
-                                return;
-                            default:
-                                if (containsBannedPhrase(messageFromClient)) {
-                                    List<String> detectedPhrases = getBannedPhrasesFromMessage(messageFromClient);
-                                    String bannedPhrasesMessage = String.join(", ", detectedPhrases);
-                                    notifyClient("Your Message Can't be sent. You have used a banned phrase(s): " + bannedPhrasesMessage);
-                                } else {
-                                    broadcastMessage(messageFromClient);
-                                }
-                                break;
+                        String flag = tokens[0];
+
+                        if (commandRouter.containsKey(flag)) {
+                            commandRouter.get(flag).execute(tokens);
+                            if (flag.equals("-q")) return; // Exit the thread if the user quits
+                        } else {
+                            // Default fallback for normal messages
+                            if (containsBannedPhrase(messageFromClient)) {
+                                List<String> detectedPhrases = getBannedPhrasesFromMessage(messageFromClient);
+                                notifyClient("Your Message Can't be sent. You have used banned phrase(s): " + String.join(", ", detectedPhrases));
+                            } else {
+                                broadcastMessage(messageFromClient);
+                            }
                         }
                     }
                 }
